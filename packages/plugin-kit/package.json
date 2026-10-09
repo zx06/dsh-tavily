@@ -1,0 +1,29 @@
+{
+  "name": "@dsh-plugins/plugin-kit",
+  "version": "0.1.0",
+  "description": "Shared thin helpers for dsh-plugins: Tavily client, audit log, redacted logging",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@tavily/core": "^0.7.14"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.check.json",
+    "test": "tsx --test \"test/**/*.test.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0"
+  },
+  "private": true
+}

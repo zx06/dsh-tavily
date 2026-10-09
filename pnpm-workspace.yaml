@@ -1,0 +1,17 @@
+packages:
+  # The shared kit is dev-only: `scripts/bundle.mjs` inlines its built output
+  # into `dist/host.js`, so consumers never resolve it. Keeping it a workspace
+  # package lets the plugin's source and tests import it directly.
+  - 'packages/*'
+
+# esbuild ships its native binary through a postinstall script. pnpm blocks
+# dependency build scripts by default, and an unapproved script is a hard
+# install error (ERR_PNPM_IGNORED_BUILDS) rather than a warning.
+#
+# Both spellings are listed because the setting was renamed across majors:
+# pnpm 10 reads `onlyBuiltDependencies`, pnpm 12 reads `allowBuilds`. Each
+# version ignores the key it does not know.
+onlyBuiltDependencies:
+  - esbuild
+allowBuilds:
+  esbuild: true

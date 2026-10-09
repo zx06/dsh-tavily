@@ -1,0 +1,18 @@
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+.DS_Store
+
+# tsc emits declarations next to the bundle for local editing; they are not
+# published (package.json declares no `types`) and reference the private
+# @dsh-plugins/plugin-kit, which a consumer cannot resolve.
+dist/*
+# Exception: the runtime entry is committed. Installing from GitHub runs no
+# build step, so `main: ./dist/host.js` must exist in the checkout. See the
+# README for why the bundle inlines the private kit.
+!dist/host.js
+
+# The kit is a private, dev-only workspace package that the bundler inlines
+# into dist/host.js. Its own build output is a build artifact, never shipped
+# or published, so it stays out of the repo.
+packages/plugin-kit/dist/

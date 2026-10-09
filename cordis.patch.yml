@@ -1,0 +1,15 @@
+# dsh tavily bundle patch.
+#
+# One insert mounts the Host half. The browser half is declared by the
+# `dsh.client` field in package.json and binds to this row because the row's
+# `id` equals the package name's last segment — the client half is attached to
+# the bare package-name row, and subpath rows never carry one.
+#
+# `id: tavily` is also the settings namespace: the settings page reads and
+# writes the entry's Config through `ctx.configForms.get('tavily')`, so this
+# id, the settings namespace, and the `ctx.web` provider id are all `tavily`
+# and must stay in agreement.
+- insert:
+    - id: tavily
+      name: '@zx06/tavily'
+      config: {}
