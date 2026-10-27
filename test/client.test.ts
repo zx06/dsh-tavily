@@ -116,6 +116,60 @@ test('the settings section registers with an id matching the settings namespace'
   assert.match(client, /id:\s*CONFIG_NS/);
 });
 
+test('the plugin detail page slot is keyed by the package name, not the settings id', () => {
+  // The plugin manager dispatches `plugins.bundle.config` with
+  // `entryKey = pkg.name`, and only renders the section for a bundle whose key
+  // it collected. Keying by the settings id (`tavily`) would register fine and
+  // then never render, which no type or syntax check can catch.
+  assert.match(
+    client,
+    /ctx\.slots\.inject\('plugins\.bundle\.config'/,
+    'client.js must register on plugins.bundle.config',
+  );
+  const block = /plugins\.bundle\.config[\s\S]{0,400}?key:\s*([A-Za-z_$][\w$]*|'[^']*')/.exec(client);
+  assert.ok(block, 'the plugins.bundle.config registration must declare a key');
+  const key = block[1] ?? '';
+  const resolved = key.startsWith("'") ? key.slice(1, -1) : key;
+  assert.equal(
+    resolved,
+    'PKG_NAME',
+    'the detail-page key must be the PKG_NAME constant so it tracks package.json',
+  );
+  assert.match(
+    client,
+    new RegExp(`const PKG_NAME = '${PKG_NAME.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'`),
+    `PKG_NAME must equal the package name (${PKG_NAME})`,
+  );
+});
+
+test('the client half declares the plugin manager so the detail slot exists', () => {
+  // Without this entry the slot may never be declared and the registration
+  // waits forever: the section silently never appears.
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(here, '..', 'package.json'), 'utf8'),
+  ) as { dsh?: { client?: { inject?: string[] } } };
+  const declared = manifest.dsh?.client?.inject ?? [];
+  assert.ok(
+    declared.includes('@deepseek-ai/dsh-client-ui-plugin-manager'),
+    'dsh.client.inject must declare @deepseek-ai/dsh-client-ui-plugin-manager',
+  );
+});
+
+test('the detail page reuses the settings page instead of a second copy', () => {
+  // Two divergent configuration UIs would drift; both mount SettingsPage, and
+  // only the detail-page mount suppresses the page header the owner already
+  // renders above the slot.
+  const mounts = client.match(/h\(SettingsPage, \{[^}]*\}\)/g) ?? [];
+  assert.equal(mounts.length, 2, 'exactly two SettingsPage mounts are expected');
+  const compactMount = mounts.find((mount) => mount.includes('compact: true'));
+  assert.ok(compactMount, 'the plugins.bundle.config mount must pass compact: true');
+  assert.equal(
+    mounts.filter((mount) => mount.includes('compact: true')).length,
+    1,
+    'only the detail-page mount is compact',
+  );
+});
+
 test('the key input is a password field and is never seeded from a response', () => {
   assert.match(client, /type:\s*'password'/);
   // The draft must start empty: a response carries only a mask, and seeding the

@@ -1,6 +1,6 @@
 {
   "name": "@zx06/tavily",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Tavily web search for DeepSeek Harness: a ctx.web search provider plus tavily_search/extract/crawl/map/research tools, with a settings page for the API key, quota, and audit log",
   "license": "MIT",
   "type": "module",
@@ -36,7 +36,8 @@
       "immediately": true,
       "inject": [
         "@deepseek-ai/dsh-client-ui-settings",
-        "@deepseek-ai/dsh-client-locale"
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-plugin-manager"
       ]
     }
   },

@@ -42,6 +42,10 @@ dsh plugin --profile web add github:zx06/dsh-tavily
 设置页包含：API Key 表单（密文，保存时自动校验）、搜索选项（默认结果数/深度/超时/
 是否允许免密）、额度卡片（Tavily `/usage`）、本月用量统计、审计日志表。
 
+同一套配置界面也出现在**插件管理器的插件详情页**（`plugins.bundle.config` 槽位）：
+打开 `@zx06/tavily` 的详情页即可直接修改，不必再进设置。两处共用同一个组件和同一份
+配置（都走 `ctx.configForms`），改动即时同步；详情页会省掉重复的页面标题。
+
 ## 本地联调
 
 ```bash

@@ -27,6 +27,8 @@ window.__ModuleLoader__.load({
     const NS = 'settings.tavily'
     const inject = ['slots', 'locale', 'configForms']
     const API = '/api/tavily'
+    /** The package name; also the plugin manager's dispatch key for this bundle. */
+    const PKG_NAME = '@zx06/tavily'
     /** Settings namespace == the Loader row id == the plugin name's last segment. */
     const CONFIG_NS = 'tavily'
 
@@ -411,6 +413,9 @@ window.__ModuleLoader__.load({
 
     function SettingsPage(props) {
       const ctx = props.ctx
+      // The plugin detail page already renders this plugin's title and
+      // description above the slot, so `compact` drops the page header there.
+      const compact = props.compact === true
       const locale = props.locale ?? 'zh'
       const t = key => (DICT[locale] && DICT[locale][key]) ?? DICT.zh[key] ?? key
       const [summary, setSummary] = useState(undefined)
@@ -515,10 +520,12 @@ window.__ModuleLoader__.load({
       }[summary?.keySource] ?? summary?.keySource ?? ''
 
       return h('div', { className: 'tv_page' },
-        h('div', { className: 'tv_head' },
-          h('span', { className: 'tv_headicon' }, h(GlobeIcon, { size: 18 })),
-          h('h2', null, t('title'))),
-        h('p', { className: 'tv_note' }, t('desc')),
+        compact
+          ? null
+          : h('div', { className: 'tv_head' },
+              h('span', { className: 'tv_headicon' }, h(GlobeIcon, { size: 18 })),
+              h('h2', null, t('title'))),
+        compact ? null : h('p', { className: 'tv_note' }, t('desc')),
 
         h('section', { className: 'tv_card' },
           h('h3', null, t('keyLabel')),
@@ -641,6 +648,17 @@ window.__ModuleLoader__.load({
         label: () => t('nav'),
         locale: NS,
       }, props => h(SettingsPage, { ...props, locale: localeTag(ctx), ctx })))
+      // The plugin manager renders this on the bundle's own detail page, between
+      // its description and its rows. `key` must be the PACKAGE name: the owner
+      // dispatches with `entryKey = pkg.name`, so the settings namespace
+      // (`tavily`) would never match and the section would silently never show.
+      // The owner passes only `view` and `entryKey` — no `form` — so the config
+      // still comes from `ctx.configForms` exactly as on the settings page.
+      ctx.slots.inject('plugins.bundle.config', () => ctx.slots.register({
+        name: 'plugins.bundle.config',
+        key: PKG_NAME,
+        locale: NS,
+      }, props => h(SettingsPage, { ...props, compact: true, locale: localeTag(ctx), ctx })))
     }
 
     exports.apply = apply
