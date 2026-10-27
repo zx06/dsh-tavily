@@ -10,7 +10,7 @@
  * 3. A **settings API** at `/api/tavily` backing the browser half's page.
  * 4. A **system-prompt section** marking Tavily output as untrusted data.
  *
- * Key handling follows the 0.2.0-rc.2 conventions:
+ * Key handling follows the 0.2.1-rc.3 conventions:
  *
  * - The key resolves per call as literal config → `ctx.credentials` → launch
  *   environment, and is never cached (see `./keystore`).

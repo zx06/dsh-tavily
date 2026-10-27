@@ -1,7 +1,7 @@
 /**
  * Plugin configuration schema and its projection into per-call options.
  *
- * This is the 0.2.0-rc.2 shape: a schemastery `Config` exported from the Host
+ * This is the 0.2.1-rc.3 shape: a schemastery `Config` exported from the Host
  * half. The Loader validates it, DSH derives a settings form from it
  * (`autoGenerate`), and `apply` receives it as the second argument.
  *

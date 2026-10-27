@@ -10,7 +10,7 @@
  * checking the names against the live shell does.
  *
  * The token allowlist below is the set verified present in the shipped desktop
- * runtime (0.2.0-rc.2). Adding a token here means confirming it exists in the
+ * runtime (0.2.1-rc.3). Adding a token here means confirming it exists in the
  * shell's own stylesheets first.
  */
 import test from 'node:test';
