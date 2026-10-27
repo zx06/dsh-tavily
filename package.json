@@ -1,6 +1,6 @@
 {
   "name": "@zx06/tavily",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Tavily web search for DeepSeek Harness: a ctx.web search provider plus tavily_search/extract/crawl/map/research tools, with a settings page for the API key, quota, and audit log",
   "license": "MIT",
   "type": "module",

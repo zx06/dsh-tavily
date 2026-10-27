@@ -8,7 +8,7 @@ DeepSeek Harness 的 Tavily 联网搜索插件。它同时提供两种接入方�
    于是壳自带的 `web_search` 工具也能返回 Tavily 结果。
 2. **五个独立工具**——不依赖 provider 选择，装上即可用。
 
-外加一个设置页（API Key、搜索选项、额度卡片、审计日志）。
+外加一个配置界面（API Key、搜索选项、额度卡片、审计日志），就挂在插件详情页上。
 
 ## 安装
 
@@ -20,8 +20,8 @@ dsh plugin --profile web add @zx06/tavily
 dsh plugin --profile web add github:zx06/dsh-tavily
 ```
 
-两个通道安装的都是同一份构建产物。装好后重启 profile，在
-**设置 → Tavily 搜索** 里填 API Key 即可（也可先用免密模式）。
+两个通道安装的都是同一份构建产物。装好后重启 profile，打开
+**插件管理器 → @zx06/tavily 详情页** 填 API Key 即可（也可先用免密模式）。
 
 ## 功能
 
@@ -39,12 +39,12 @@ dsh plugin --profile web add github:zx06/dsh-tavily
   若超时仍在运行，会返回 `requestId` 与提示，不会丢失任务。
 - 传 `request_id`：只查询一次状态，用于继续轮询已有任务。
 
-设置页包含：API Key 表单（密文，保存时自动校验）、搜索选项（默认结果数/深度/超时/
+配置界面包含：API Key 表单（密文，保存时自动校验）、搜索选项（默认结果数/深度/超时/
 是否允许免密）、额度卡片（Tavily `/usage`）、本月用量统计、审计日志表。
 
-同一套配置界面也出现在**插件管理器的插件详情页**（`plugins.bundle.config` 槽位）：
-打开 `@zx06/tavily` 的详情页即可直接修改，不必再进设置。两处共用同一个组件和同一份
-配置（都走 `ctx.configForms`），改动即时同步；详情页会省掉重复的页面标题。
+它注册在插件管理器的 **`plugins.bundle.config`** 槽位，因此只出现在
+`@zx06/tavily` 自己的插件详情页上，不占用「设置」侧栏。插件管理器会渲染这个
+bundle 的标题和描述，所以界面本身不再重复页头。
 
 ## 本地联调
 
@@ -58,10 +58,10 @@ pnpm install && pnpm build
 
 优先级从高到低：
 
-1. **DSH 设置页 → Tavily 搜索 → 填写 API Key**（推荐）。保存时会先用 Tavily
+1. **插件管理器 → @zx06/tavily 详情页 → 填写 API Key**（推荐）。保存时会先用 Tavily
    `/usage` 校验有效性，通过后写入 DSH 凭据服务（`$DSH_HOME/.credentials.yaml`）。
 2. 环境变量 `TAVILY_API_KEY`。注意：继承的环境变量**只读且遮蔽写入**——
-   若它已设置，设置页会拒绝保存并提示你取消该环境变量。
+   若它已设置，配置界面会拒绝保存并提示你取消该环境变量。
 3. 插件 config 的字面量 `apiKey` 字段（`role('secret')`，不会出现在任何响应里）。
 
 凭据引用名可通过 `apiKeyEnv` 改（默认 `TAVILY_API_KEY`）。
@@ -95,14 +95,14 @@ Tavily 允许无 Key 使用 `search` 与 `extract`（共享限速）。本插件
 
 `~/.dsh/tavily/audit-YYYYMM.jsonl`，每行一次调用：时间、工具、目标、耗时、结果数、
 状态/错误码、调用方、本次消耗的 credits。Key 永不写入（目标里形如 `tvly-...` 的字符串
-也会被脱敏）。可在设置页查看，也可直接读文件。
+也会被脱敏）。可在插件详情页查看，也可直接读文件。
 
 ## 与旧版 `@dsh-plugins/search-tavily` 的差异（破坏性变更）
 
 - **包名/entry id 变更**：`search-tavily` → `tavily`。设置命名空间、`ctx.web`
   provider id 同步变更。
 - **Key 存储变更**：不再读写 `~/.dsh/tavily.key`，也不再通过 `configEditor` 改写
-  profile patch；统一走 DSH 凭据服务。旧的 key 文件会被忽略，请在设置页重新填写。
+  profile patch；统一走 DSH 凭据服务。旧的 key 文件会被忽略，请在插件详情页重新填写。
 - **审计目录变更**：`~/.dsh/search-tavily/` → `~/.dsh/tavily/`。
 - **新增**：`ctx.web` provider、`tavily_research`、免密模式、credits 记录、
   `map` 的审计归类修正（此前被误记为 `crawl`）。

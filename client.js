@@ -1,8 +1,10 @@
 /**
  * tavily — browser half.
  *
- * Contributes one settings section (`settings.section` id `tavily`) with the
- * API-key form, the Tavily quota card, and the local audit table.
+ * Contributes the configuration UI to the plugin manager's detail page for this
+ * bundle (`plugins.bundle.config`): the API-key form, the Tavily quota card, and
+ * the local audit table. There is deliberately no `settings.section` — one
+ * configuration surface, reached from the plugin's own page.
  *
  * Hand-written ModuleLoader bundle, as this repo's convention: no build step,
  * only the `react` the shell already provides. All colour comes from live
@@ -34,9 +36,6 @@ window.__ModuleLoader__.load({
 
     const DICT = {
       zh: {
-        nav: 'Tavily 搜索',
-        title: 'Tavily 搜索',
-        desc: '为 Agent 提供 Tavily 联网搜索。同时注册为 DSH 的 ctx.web 搜索 provider，并额外提供 search / extract / crawl / map / research 五个工具。',
         loading: '正在加载…',
         loadFailed: '无法连接插件后端',
         retry: '重试',
@@ -99,9 +98,6 @@ window.__ModuleLoader__.load({
         err: '失败',
       },
       en: {
-        nav: 'Tavily Search',
-        title: 'Tavily Search',
-        desc: 'Tavily web search for agents. Registers as the DSH ctx.web search provider and ships five tools: search / extract / crawl / map / research.',
         loading: 'Loading…',
         loadFailed: 'Cannot reach plugin backend',
         retry: 'Retry',
@@ -195,32 +191,6 @@ window.__ModuleLoader__.load({
     function fmtNum(n) {
       if (n === null || n === undefined) return '–'
       return Number(n).toLocaleString()
-    }
-
-    /**
-     * The globe glyph, copied verbatim from the shell's own icon set
-     * (`IconGlobeOutline14` in `@deepseek-ai/dsh-client-ui-primitives`).
-     *
-     * Why copy rather than import: that package ships no `dsh.client`
-     * declaration, so it is not a client boot-graph entry and a bundle half
-     * cannot `require` it — the module resolver would throw. Reusing the exact
-     * path data keeps this icon visually identical to the shell's, which is the
-     * point: the settings NAVIGATION icon itself is hardcoded in the shell
-     * (`navIcon(id)` special-cases only `models`/`agent-presets`/`plugins` and
-     * falls back to a gear for every other section, and the `settings.section`
-     * slot takes no icon field). So the page carries the branding instead.
-     */
-    function GlobeIcon({ size = 16, className }) {
-      return h('svg', {
-        width: size, height: size, className,
-        viewBox: '0 0 14 14', fill: 'none',
-        xmlns: 'http://www.w3.org/2000/svg', 'aria-hidden': 'true',
-      }, h('path', {
-        fillRule: 'evenodd',
-        clipRule: 'evenodd',
-        fill: 'currentColor',
-        d: 'M7.00018 0.353516C10.6708 0.353535 13.6468 3.32958 13.6469 7.00018C13.6468 10.6708 10.6708 13.6468 7.00018 13.6469C3.32957 13.6468 0.353535 10.6708 0.353516 7.00018C0.353535 3.32957 3.32957 0.353531 7.00018 0.353516ZM5.44643 7.59661C5.49463 8.97506 5.70762 10.191 6.02136 11.0793C6.20141 11.5891 6.40328 11.9585 6.59898 12.1889C6.79501 12.4196 6.93213 12.454 7.00018 12.454C7.06822 12.454 7.20533 12.4197 7.40138 12.1889C7.59708 11.9585 7.79895 11.589 7.979 11.0793C8.29274 10.191 8.50574 8.97506 8.55394 7.59661H5.44643ZM1.57861 7.59661C1.80785 9.70467 3.2386 11.4509 5.1715 12.1388C5.07135 11.9317 4.97972 11.7098 4.89746 11.477C4.53084 10.4391 4.30224 9.0828 4.25357 7.59661H1.57861ZM9.74679 7.59661C9.69813 9.0828 9.46952 10.4391 9.1029 11.477C9.0206 11.7099 8.92818 11.9316 8.82797 12.1388C10.7613 11.4511 12.1925 9.70496 12.4218 7.59661H9.74679ZM5.1706 1.8616C3.23814 2.54963 1.80876 4.29604 1.5795 6.40376H4.25357C4.30224 4.91756 4.53083 3.56129 4.89746 2.5234C4.97968 2.29066 5.07051 2.0686 5.1706 1.8616ZM7.00018 1.54637C6.93213 1.54638 6.79503 1.5807 6.59898 1.81145C6.40332 2.04177 6.20139 2.41058 6.02136 2.92012C5.70754 3.80851 5.49461 5.02499 5.44643 6.40376H8.55394C8.50575 5.025 8.29282 3.80851 7.979 2.92012C7.79898 2.41059 7.59705 2.04177 7.40138 1.81145C7.20531 1.58067 7.06823 1.54637 7.00018 1.54637ZM8.82887 1.8616C8.92902 2.0687 9.02064 2.29053 9.1029 2.5234C9.46953 3.56129 9.69812 4.91756 9.74679 6.40376H12.4209C12.1916 4.29575 10.7618 2.54943 8.82887 1.8616Z',
-      }))
     }
 
     /**
@@ -413,9 +383,6 @@ window.__ModuleLoader__.load({
 
     function SettingsPage(props) {
       const ctx = props.ctx
-      // The plugin detail page already renders this plugin's title and
-      // description above the slot, so `compact` drops the page header there.
-      const compact = props.compact === true
       const locale = props.locale ?? 'zh'
       const t = key => (DICT[locale] && DICT[locale][key]) ?? DICT.zh[key] ?? key
       const [summary, setSummary] = useState(undefined)
@@ -519,14 +486,10 @@ window.__ModuleLoader__.load({
         none: t('srcNone'),
       }[summary?.keySource] ?? summary?.keySource ?? ''
 
+      // The plugin manager's detail page renders this bundle's title and
+      // description immediately above the slot, so the form starts at the first
+      // card instead of repeating a page header of its own.
       return h('div', { className: 'tv_page' },
-        compact
-          ? null
-          : h('div', { className: 'tv_head' },
-              h('span', { className: 'tv_headicon' }, h(GlobeIcon, { size: 18 })),
-              h('h2', null, t('title'))),
-        compact ? null : h('p', { className: 'tv_note' }, t('desc')),
-
         h('section', { className: 'tv_card' },
           h('h3', null, t('keyLabel')),
           h('p', null,
@@ -584,10 +547,7 @@ window.__ModuleLoader__.load({
     const CSS = [
       // Scoped to the page root so nothing here can leak into shell chrome.
       '.tv_page{display:flex;flex-direction:column;gap:12px;max-width:860px;color:var(--dsw-alias-label-primary);font-size:13px;line-height:1.6}',
-      '.tv_page h2{margin:0;font-size:16px;font-weight:500;color:var(--dsw-alias-label-primary)}',
       '.tv_page h3{margin:0;font-size:14px;font-weight:500;color:var(--dsw-alias-label-primary)}',
-      '.tv_head{display:flex;align-items:center;gap:8px}',
-      '.tv_headicon{display:inline-flex;align-items:center;color:var(--dsw-alias-brand-primary)}',
       '.tv_card{border:1px solid var(--dsw-alias-border-l1);border-radius:12px;padding:12px 14px;background:var(--dsw-alias-bg-layer-1)}',
       '.tv_card>h3{margin-bottom:8px}',
       '.tv_row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}',
@@ -641,24 +601,17 @@ window.__ModuleLoader__.load({
         document.head.appendChild(style)
         return () => style.remove()
       }, 'tavily: styles')
-      ctx.slots.inject('settings.section', () => ctx.slots.register({
-        name: 'settings.section',
-        id: CONFIG_NS,
-        order: 35,
-        label: () => t('nav'),
-        locale: NS,
-      }, props => h(SettingsPage, { ...props, locale: localeTag(ctx), ctx })))
       // The plugin manager renders this on the bundle's own detail page, between
       // its description and its rows. `key` must be the PACKAGE name: the owner
       // dispatches with `entryKey = pkg.name`, so the settings namespace
       // (`tavily`) would never match and the section would silently never show.
       // The owner passes only `view` and `entryKey` — no `form` — so the config
-      // still comes from `ctx.configForms` exactly as on the settings page.
+      // comes from `ctx.configForms`, keyed by the Loader row id (`tavily`).
       ctx.slots.inject('plugins.bundle.config', () => ctx.slots.register({
         name: 'plugins.bundle.config',
         key: PKG_NAME,
         locale: NS,
-      }, props => h(SettingsPage, { ...props, compact: true, locale: localeTag(ctx), ctx })))
+      }, props => h(SettingsPage, { ...props, locale: localeTag(ctx), ctx })))
     }
 
     exports.apply = apply

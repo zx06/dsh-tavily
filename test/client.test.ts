@@ -107,13 +107,30 @@ test('the client half declares the services it actually uses', () => {
   }
 });
 
-test('the settings section registers with an id matching the settings namespace', () => {
+test('the config namespace matches the Loader row id', () => {
   // `ctx.configForms.get(id)` is keyed by the Loader entry id, so a mismatch
-  // would silently leave the options card unable to read or write anything.
+  // would silently leave every card unable to read or write anything.
   const nsMatch = /const CONFIG_NS = '([^']+)'/.exec(client);
   assert.ok(nsMatch, 'CONFIG_NS must be declared');
   assert.equal(nsMatch[1], 'tavily');
-  assert.match(client, /id:\s*CONFIG_NS/);
+  assert.match(client, /forms\.get\(CONFIG_NS\)/);
+});
+
+test('there is no settings section, so the plugin detail page is the only surface', () => {
+  // The configuration deliberately lives on the bundle's own page. Re-adding a
+  // `settings.section` would give the plugin two entry points to one form.
+  assert.ok(
+    !client.includes("'settings.section'"),
+    'client.js must not register a settings.section entry',
+  );
+  // The dictionary entries only the removed nav row and page header read must
+  // not come back either: dead keys would silently accumulate.
+  for (const key of ['nav', 'title', 'desc']) {
+    assert.ok(
+      !new RegExp(`\\b${key}:\\s*['\"]`).test(client),
+      `dictionary must not carry an unused '${key}' entry`,
+    );
+  }
 });
 
 test('the plugin detail page slot is keyed by the package name, not the settings id', () => {
@@ -155,19 +172,16 @@ test('the client half declares the plugin manager so the detail slot exists', ()
   );
 });
 
-test('the detail page reuses the settings page instead of a second copy', () => {
-  // Two divergent configuration UIs would drift; both mount SettingsPage, and
-  // only the detail-page mount suppresses the page header the owner already
-  // renders above the slot.
+test('the form mounts exactly once, on the plugin detail page', () => {
   const mounts = client.match(/h\(SettingsPage, \{[^}]*\}\)/g) ?? [];
-  assert.equal(mounts.length, 2, 'exactly two SettingsPage mounts are expected');
-  const compactMount = mounts.find((mount) => mount.includes('compact: true'));
-  assert.ok(compactMount, 'the plugins.bundle.config mount must pass compact: true');
-  assert.equal(
-    mounts.filter((mount) => mount.includes('compact: true')).length,
-    1,
-    'only the detail-page mount is compact',
-  );
+  assert.equal(mounts.length, 1, 'SettingsPage must have a single mount point');
+});
+
+test('the form omits its own page header', () => {
+  // The plugin manager renders this bundle's title and description immediately
+  // above the slot, so a header here would print the name twice.
+  assert.ok(!client.includes('tv_head'), 'the page header styles must be gone');
+  assert.ok(!/h\('h2'/.test(client), 'the form must not render its own <h2>');
 });
 
 test('the key input is a password field and is never seeded from a response', () => {
@@ -177,23 +191,15 @@ test('the key input is a password field and is never seeded from a response', ()
   assert.match(client, /const \[draft, setDraft\] = useState\(''\)/);
 });
 
-test('the page header carries an inline icon rather than a shell icon dependency', () => {
-  // The settings NAVIGATION icon is hardcoded in the shell and the
-  // `settings.section` slot accepts no icon field, so the page brands itself.
-  // The glyph must be drawn inline: `@deepseek-ai/dsh-client-ui-primitives`
-  // declares no `dsh.client`, so a bundle half cannot require it.
-  assert.match(client, /function GlobeIcon\(/, 'an inline icon component must exist');
-  assert.match(client, /tv_headicon/);
-  assert.ok(
-    !/require\(['"]@deepseek-ai\/dsh-client-ui-primitives/.test(client),
-    'the bundle must not require a non-client package',
-  );
-  // The only allowed runtime import is the React the shell provides.
-  const requires = client.match(/require\(['"][^'"]+['"]\)/g) ?? [];
+test('the bundle requires nothing but the React the shell provides', () => {
+  // `@deepseek-ai/dsh-client-ui-primitives` declares no `dsh.client`, so a
+  // bundle half cannot require it; any other require would fail at load time.
+  const requires = client.match(/require\(['\"][^'\"]+['\"]\)/g) ?? [];
   assert.deepEqual(requires, ["require('react')"]);
 });
 
-test('the icon uses currentColor so it follows the theme', () => {
-  // A hardcoded fill would not track light/dark.
-  assert.match(client, /fill:\s*'currentColor'/);
+test('no theme token is invented, and every used token is verified', () => {
+  // The allowlist guard above covers this; this pins the specific regression
+  // that shipped first: a filled button whose text colour resolved to nothing.
+  assert.ok(!client.includes('label-on-accent'));
 });
