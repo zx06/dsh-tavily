@@ -381,7 +381,7 @@ window.__ModuleLoader__.load({
         notice ? h('p', { className: 'tv_note' }, notice) : null)
     }
 
-    function SettingsPage(props) {
+    function ConfigPanel(props) {
       const ctx = props.ctx
       const locale = props.locale ?? 'zh'
       const t = key => (DICT[locale] && DICT[locale][key]) ?? DICT.zh[key] ?? key
@@ -611,7 +611,7 @@ window.__ModuleLoader__.load({
         name: 'plugins.bundle.config',
         key: PKG_NAME,
         locale: NS,
-      }, props => h(SettingsPage, { ...props, locale: localeTag(ctx), ctx })))
+      }, props => h(ConfigPanel, { ...props, locale: localeTag(ctx), ctx })))
     }
 
     exports.apply = apply

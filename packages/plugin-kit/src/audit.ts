@@ -104,7 +104,7 @@ export function entriesFileName(date: Date): string {
   return fileNameFor(date);
 }
 
-/** Aggregate entries into month-level stats for the settings-page fallback card. */
+/** Aggregate entries into month-level stats for the configuration panel's fallback card. */
 export function summarize(entries: readonly AuditEntry[]): AuditStats {
   const stats: AuditStats = {
     totalCalls: 0,

@@ -1,7 +1,7 @@
 {
   "name": "@zx06/tavily",
-  "version": "0.4.0",
-  "description": "Tavily web search for DeepSeek Harness: a ctx.web search provider plus tavily_search/extract/crawl/map/research tools, with a settings page for the API key, quota, and audit log",
+  "version": "0.4.1",
+  "description": "Tavily web search for DeepSeek Harness: a ctx.web search provider plus tavily_search/extract/crawl/map/research tools, with its configuration UI on the plugin's own detail page",
   "license": "MIT",
   "type": "module",
   "main": "./dist/host.js",
@@ -46,7 +46,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.check.json",
     "lint": "node --check dist/host.js && node --check client.js",
     "test": "tsx --test \"test/**/*.test.ts\" \"packages/plugin-kit/test/**/*.test.ts\"",
-    "prepublishOnly": "pnpm build && pnpm typecheck && pnpm test"
+    "prepublishOnly": "pnpm build && pnpm typecheck:all && pnpm test",
+    "typecheck:all": "pnpm typecheck && pnpm -C packages/plugin-kit typecheck"
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "~3.18.5",

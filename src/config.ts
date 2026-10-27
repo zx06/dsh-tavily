@@ -7,7 +7,7 @@
  *
  * Every field is `.volatile()`, which makes the Loader hand `apply` a
  * {@link Volatile} ACCESSOR rather than a frozen snapshot. That is what lets a
- * settings-page edit take effect on the very next call without reloading the
+ * configuration-panel edit take effect on the very next call without reloading the
  * plugin — so this module must never cache `config.x.get()` across calls.
  *
  * @module config
@@ -16,7 +16,7 @@
 import z from '@deepseek-ai/schemastery';
 import type { Volatile } from '@deepseek-ai/cordis';
 
-/** Default credential reference; the settings page writes through it. */
+/** Default credential reference; the configuration panel writes through it. */
 export const DEFAULT_API_KEY_ENV = 'TAVILY_API_KEY';
 
 export const Config = z.object({
@@ -82,7 +82,7 @@ export interface ResolvedConfig {
  * Read the current configuration.
  *
  * Called fresh on every operation: a `.volatile()` field can change between
- * calls (the settings page writes through the same namespace), so caching a
+ * calls (the configuration panel writes through the same namespace), so caching a
  * value here would silently pin the plugin to the config it started with.
  *
  * @param config - the Loader-provided accessors.

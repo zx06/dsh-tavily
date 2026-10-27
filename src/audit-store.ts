@@ -1,13 +1,14 @@
 /**
  * Plugin-owned audit file store: appends JSONL lines under the DSH home dir
  * (`~/.dsh/tavily/audit-YYYYMM.jsonl`), reads recent entries back for the
- * settings page. Never persists API keys (see `@dsh-plugins/plugin-kit`
+ * configuration panel. Never persists API keys (see `@dsh-plugins/plugin-kit`
  * audit serialization, which also redacts anything key-shaped).
  *
  * @module audit-store
  */
 
 import fs from 'node:fs';
+import { promises as fsp } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
@@ -97,7 +98,7 @@ export function readAudit(query: AuditQuery = {}, dir = dataDir()): AuditEntry[]
   });
 }
 
-/** Month stats for the settings-page fallback quota card. */
+/** Month stats for the configuration panel's fallback quota card. */
 export function monthStats(month = currentMonth(), dir = dataDir()): AuditStats {
   const raw: string[] = [];
   try {
@@ -107,6 +108,105 @@ export function monthStats(month = currentMonth(), dir = dataDir()): AuditStats 
   }
   const entries = raw.map(parseEntry).filter((entry): entry is AuditEntry => entry !== undefined);
   return summarize(entries);
+}
+
+/**
+ * Parsed-file cache, keyed by absolute path.
+ *
+ * `/summary` and `/audit` re-read the whole month file on every panel open, and
+ * the file is capped at 10 MB. Parsing tens of thousands of JSON lines
+ * synchronously blocked the event loop on each request. Re-parsing only when
+ * the file's identity changes makes repeat opens cheap while staying correct
+ * for an append that happened in between (size and mtime both move).
+ */
+interface CachedFile {
+  key: string;
+  entries: AuditEntry[];
+}
+const parseCache = new Map<string, CachedFile>();
+
+/** Identity of one file for cache invalidation; undefined when it is absent. */
+async function fileKey(file: string): Promise<string | undefined> {
+  try {
+    const stat = await fsp.stat(file);
+    return `${stat.size}:${stat.mtimeMs}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Read and parse one JSONL file, reusing the cache when unchanged. */
+async function readEntries(file: string): Promise<AuditEntry[]> {
+  const key = await fileKey(file);
+  if (key === undefined) {
+    parseCache.delete(file);
+    return [];
+  }
+  const cached = parseCache.get(file);
+  if (cached !== undefined && cached.key === key) return cached.entries;
+  let raw: string;
+  try {
+    raw = await fsp.readFile(file, 'utf8');
+  } catch {
+    return [];
+  }
+  const entries = raw
+    .split('\n')
+    .map(parseEntry)
+    .filter((entry): entry is AuditEntry => entry !== undefined);
+  parseCache.set(file, { key, entries });
+  return entries;
+}
+
+/** Month files for one month, including the overflow rotation. */
+function monthFiles(dir: string, month: string): string[] {
+  const base = monthFile(dir, month);
+  return [base, base.replace(/\.jsonl$/, '-r1.jsonl')];
+}
+
+/**
+ * Asynchronous {@link readAudit} for the request path.
+ *
+ * Identical semantics; exists so a route handler never blocks the event loop on
+ * a multi-megabyte synchronous read.
+ */
+export async function readAuditAsync(query: AuditQuery = {}, dir = dataDir()): Promise<AuditEntry[]> {
+  const month = query.month ?? currentMonth();
+  const entries: AuditEntry[] = [];
+  for (const file of monthFiles(dir, month)) entries.push(...(await readEntries(file)));
+  return filterEntries(entries, {
+    datePrefix: query.datePrefix,
+    keyword: query.keyword,
+    limit: query.limit ?? 50,
+  });
+}
+
+/** Asynchronous {@link monthStats} for the request path. */
+export async function monthStatsAsync(month = currentMonth(), dir = dataDir()): Promise<AuditStats> {
+  const entries: AuditEntry[] = [];
+  for (const file of monthFiles(dir, month)) entries.push(...(await readEntries(file)));
+  return summarize(entries);
+}
+
+/** Asynchronous {@link listMonths} for the request path. */
+export async function listMonthsAsync(dir = dataDir()): Promise<string[]> {
+  let files: string[];
+  try {
+    files = await fsp.readdir(dir);
+  } catch {
+    return [];
+  }
+  const months = new Set<string>();
+  for (const file of files) {
+    const match = /^audit-(\d{6})(?:-r1)?\.jsonl$/.exec(file);
+    if (match?.[1]) months.add(match[1]);
+  }
+  return [...months].sort().reverse();
+}
+
+/** Drop cached parses; tests use this to isolate cases sharing a temp dir. */
+export function clearAuditCache(): void {
+  parseCache.clear();
 }
 
 /** List available audit months (YYYYMM) present on disk, newest first. */

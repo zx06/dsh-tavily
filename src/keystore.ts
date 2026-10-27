@@ -16,7 +16,7 @@
  * rotated key reach the next call without a reload.
  *
  * The resolved key is held in memory only — never written to logs, audit
- * entries, or the settings page (which receives a mask).
+ * entries, or the configuration panel (which receives a mask).
  *
  * @module keystore
  */
@@ -34,7 +34,7 @@ export interface KeyResolution {
   source: KeySource;
   /** Display mask (`tvly-abcd...wxyz`); never the key itself. */
   masked?: string;
-  /** The credential reference that was consulted, for the settings page. */
+  /** The credential reference that was consulted, for the configuration panel. */
   ref: string;
 }
 

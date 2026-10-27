@@ -3,7 +3,7 @@
  * `tavily_crawl`, `tavily_map`, and `tavily_research`.
  *
  * Each execution resolves the key afresh (config is `.volatile()`, so a
- * settings-page edit must reach the next call), runs through the client, and
+ * configuration-panel edit must reach the next call), runs through the client, and
  * appends one audit entry that never contains the key.
  *
  * Keyless mode is a first-class outcome, not an error path: with no credential
@@ -16,6 +16,7 @@
 
 import type { defineTool, ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools';
 import {
+  abortedError,
   compactText as compact,
   redactApiKeyLike,
   shorten,
@@ -25,8 +26,36 @@ import {
   type TavilyResearchResult,
 } from '@dsh-plugins/plugin-kit';
 
-/** Default polling cadence for a research task. */
+/** First polling interval for a research task; later polls back off from here. */
 const DEFAULT_RESEARCH_POLL_MS = 3_000;
+/** Upper bound for the backed-off polling interval. */
+const RESEARCH_POLL_CEILING_MS = 15_000;
+
+/**
+ * Sleep, but reject as soon as `signal` aborts.
+ *
+ * A plain `setTimeout` promise cannot be interrupted, so an aborted research
+ * call would sit in the poll loop for up to `researchTimeoutMs` after the user
+ * pressed stop. The listener is removed on both paths so a long-lived signal
+ * does not accumulate one handler per poll.
+ */
+function sleepUnlessAborted(ms: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.reject(abortedError('研究任务轮询', signal));
+  return new Promise<void>((resolve, reject) => {
+    // Declared before the timer so the callback never closes over a binding in
+    // its temporal dead zone (a 0ms delay can fire before the listener exists).
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onAbort = (): void => {
+      if (timer !== undefined) clearTimeout(timer);
+      reject(abortedError('研究任务轮询', signal));
+    };
+    timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
 
 export interface ToolDeps {
   defineTool: typeof defineTool;
@@ -66,7 +95,7 @@ function auditBase(
     tool,
     // Redact at the source as well as at serialization: a query that happens to
     // embed a key-shaped string must never reach the in-memory audit list, the
-    // settings page, or the JSONL file.
+    // configuration panel, or the JSONL file.
     target: redactApiKeyLike(compact(target)).slice(0, 400),
     status: outcome.status,
     latencyMs: Date.now() - startedAt,
@@ -99,6 +128,10 @@ async function audited<T>(
 ): Promise<T> {
   const startedAt = Date.now();
   try {
+    // Fail before spending a request when the caller already cancelled. Doing
+    // this here rather than in each tool covers all five, and keeps an
+    // abandoned call from being reported as a success (or audited as one).
+    if (exec.signal.aborted) throw abortedError('Tavily 调用', exec.signal);
     const outcome = await run();
     deps.appendAudit(
       auditBase(
@@ -250,6 +283,7 @@ export function registerSearchTool(deps: ToolDeps): void {
             include_domains: args.include_domains,
             exclude_domains: args.exclude_domains,
             time_range: args.time_range,
+            signal: exec.signal,
           });
           const value: SearchValue = {
             query: data.query ?? query,
@@ -385,6 +419,7 @@ export function registerExtractTool(deps: ToolDeps): void {
             urls,
             extract_depth: args.extract_depth,
             include_images: args.include_images,
+            signal: exec.signal,
           });
           const value = toExtractValue(data);
           return {
@@ -441,6 +476,7 @@ export function registerCrawlTool(deps: ToolDeps): void {
             max_breadth: args.max_breadth,
             limit: args.limit,
             allow_external: args.allow_external,
+            signal: exec.signal,
           });
           const value = toExtractValue(data);
           return {
@@ -490,7 +526,7 @@ export function registerMapTool(deps: ToolDeps): void {
         const url = compact(args.url);
         return audited(deps, 'map', url, exec, async () => {
           const client = await deps.resolveClient();
-          const data = await client.map({ url, limit: args.limit });
+          const data = await client.map({ url, limit: args.limit, signal: exec.signal });
           return {
             value: {
               urls: data.urls,
@@ -621,7 +657,10 @@ export function registerResearchTool(deps: ToolDeps): void {
 
           // Polling an existing task: one snapshot, never a create.
           if (requestedId) {
-            const snapshot = await client.getResearch(requestedId, { include_usage: true });
+            const snapshot = await client.getResearch(requestedId, {
+              include_usage: true,
+              signal: exec.signal,
+            });
             const value = researchFromSnapshot(snapshot);
             // A status read costs nothing, and `usage.credits` on this response
             // is the TASK's cumulative cost — already attributed to the call
@@ -634,6 +673,7 @@ export function registerResearchTool(deps: ToolDeps): void {
           const task = await client.research(input, {
             model: args.model,
             citation_format: args.citation_format,
+            signal: exec.signal,
           });
           if (!task.request_id) {
             throw new TavilyError('unknown', 'Tavily 未返回 research request_id，请稍后重试。', false);
@@ -645,12 +685,25 @@ export function registerResearchTool(deps: ToolDeps): void {
             created_at: task.created_at,
             response_time: task.response_time,
           };
-          const pollMs = deps.researchPollMs ?? DEFAULT_RESEARCH_POLL_MS;
+          let waitMs = deps.researchPollMs ?? DEFAULT_RESEARCH_POLL_MS;
+          const ceilingMs = deps.researchPollMs ?? RESEARCH_POLL_CEILING_MS;
           while (snapshot.status !== RESEARCH_DONE && Date.now() < deadline) {
-            await new Promise((resolve) => setTimeout(resolve, pollMs));
-            snapshot = await client.getResearch(task.request_id, { include_usage: true });
+            // Read BEFORE sleeping. Sleeping first wasted the initial interval
+            // even when the task had already settled, and made an early abort
+            // indistinguishable from a slow poll.
+            snapshot = await client.getResearch(task.request_id, {
+              include_usage: true,
+              signal: exec.signal,
+            });
             // A failed task is terminal: stop polling and report it.
-            if (snapshot.status === 'failed') break;
+            if (snapshot.status === 'failed' || snapshot.status === RESEARCH_DONE) break;
+            if (Date.now() >= deadline) break;
+            // The sleep is cancellable: otherwise an aborted call would keep
+            // this loop alive until `researchTimeoutMs` (3 minutes by default).
+            await sleepUnlessAborted(waitMs, exec.signal);
+            // Back off: a research task runs for minutes, so early polls are
+            // mostly wasted. The cap keeps recovery snappy near the end.
+            waitMs = Math.min(Math.round(waitMs * 1.6), ceilingMs);
           }
 
           const value = researchFromSnapshot(snapshot);

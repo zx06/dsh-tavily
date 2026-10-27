@@ -18,7 +18,7 @@
  * 3. `unknown` — never silently reclassified as retryable network trouble.
  *
  * Keeping this here (rather than inline in the client) means the tool layer,
- * the `ctx.web` provider, and the settings routes all classify failures the
+ * the `ctx.web` provider, and the config routes all classify failures the
  * same way, so a Key problem reads identically wherever it surfaces.
  *
  * @module errors
@@ -30,6 +30,17 @@ export const TAVILY_API_BASE = 'https://api.tavily.com';
 export const TAVILY_DASHBOARD_URL = 'https://app.tavily.com/home';
 export const TAVILY_USAGE_DOCS_URL =
   'https://docs.tavily.com/documentation/api-reference/endpoint/usage';
+
+/**
+ * Where a user goes to configure the plugin.
+ *
+ * Defined once because five messages below interpolate it: when the
+ * configuration surface moved from a Settings page to the plugin's own detail
+ * page, every copy had to change and nothing failed when one was missed (no
+ * test asserted these strings). Interpolating one constant makes the next move
+ * a single edit, and `test/guidance.test.ts` guards the wording.
+ */
+export const CONFIG_LOCATION = '插件管理器 → @zx06/tavily 详情页';
 
 /**
  * Machine-routable failure classes.
@@ -70,7 +81,7 @@ export class TavilyError extends Error {
 }
 
 export const MISSING_KEY_MESSAGE =
-  `未配置 Tavily API Key。请前往 DSH 设置页 → Tavily 搜索 → 填写 API Key（可在 ${TAVILY_DASHBOARD_URL} 申请），保存后重试。`;
+  `未配置 Tavily API Key。请前往${CONFIG_LOCATION}填写 API Key（可在 ${TAVILY_DASHBOARD_URL} 申请），保存后重试。`;
 
 /**
  * Raised when a method that keyless mode cannot serve is called without a key.
@@ -78,7 +89,7 @@ export const MISSING_KEY_MESSAGE =
  * and `research` need a credential.
  */
 export const KEYLESS_METHOD_MESSAGE =
-  `Tavily 免密模式仅支持搜索与正文抽取；crawl / map / research 需要 API Key。请前往 DSH 设置页 → Tavily 搜索 → 填写 API Key。`;
+  `Tavily 免密模式仅支持搜索与正文抽取；crawl / map / research 需要 API Key。请前往${CONFIG_LOCATION}填写 API Key。`;
 
 interface AxiosLikeError {
   response?: { status?: number; data?: unknown };
@@ -117,7 +128,7 @@ export function mapStatus(status: number | undefined, detail: string, label: str
     case 401:
       return new TavilyError(
         'invalid_api_key',
-        `Tavily API Key 无效或缺失${suffix}。请前往 DSH 设置页 → Tavily 搜索检查 Key 是否填写正确。`,
+        `Tavily API Key 无效或缺失${suffix}。请前往${CONFIG_LOCATION}检查 Key 是否填写正确。`,
         false,
         status,
       );
@@ -178,7 +189,7 @@ function classifyMessage(message: string, label: string): TavilyError | undefine
   if (/Unauthorized|invalid API key|missing or invalid/i.test(message)) {
     return new TavilyError(
       'invalid_api_key',
-      `Tavily API Key 无效或缺失（${message}）。请前往 DSH 设置页 → Tavily 搜索检查 Key 是否填写正确。`,
+      `Tavily API Key 无效或缺失（${message}）。请前往${CONFIG_LOCATION}检查 Key 是否填写正确。`,
       false,
       401,
     );
@@ -242,7 +253,7 @@ export function toTavilyError(error: unknown, label: string): TavilyError {
     const bonus = error.bonusEligible ? '（该账号可领取免费额度）' : '';
     return new TavilyError(
       'keyless_limit',
-      `Tavily 免密额度已用尽（${error.capType}）${bonus}。${retry}前往 DSH 设置页 → Tavily 搜索配置 API Key 以获得稳定额度。`,
+      `Tavily 免密额度已用尽（${error.capType}）${bonus}。${retry}前往${CONFIG_LOCATION}配置 API Key 以获得稳定额度。`,
       false,
     );
   }

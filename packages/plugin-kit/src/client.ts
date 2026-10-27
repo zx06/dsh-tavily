@@ -18,7 +18,7 @@
  *
  * The SDK covers search/extract/crawl/map/research. `/usage` has no SDK
  * method, so it stays a direct `fetch` call — which has the side benefit of
- * preserving a real HTTP status for the settings page.
+ * preserving a real HTTP status for the configuration panel.
  *
  * Keyless mode: the SDK serves `search` and `extract` without a key. This
  * client exposes that as an explicit option rather than a silent fallback, so
@@ -395,7 +395,7 @@ export class TavilyClient {
    * `/usage` has no SDK method; direct fetch with the same error mapping.
    *
    * Unlike the SDK path this preserves the real HTTP status, which is why the
-   * settings page can validate a candidate key precisely.
+   * configuration panel can validate a candidate key precisely.
    *
    * @param signal - optional cancellation.
    * @returns the usage snapshot.

@@ -39,8 +39,11 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Covers the root project AND packages/plugin-kit: the root
+      # tsconfig.check.json does not include `packages/`, so the workspace kit
+      # would otherwise only be checked indirectly by the build step.
       - name: Typecheck
-        run: pnpm typecheck
+        run: pnpm typecheck:all
 
       - name: Lint
         run: pnpm lint

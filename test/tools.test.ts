@@ -22,6 +22,17 @@ interface Registered {
   isConcurrencySafe?: (args: unknown) => boolean;
 }
 
+/**
+ * Minimal `ToolRunContext` for these tests.
+ *
+ * The real SDK makes `signal` a required field and the tools forward it to the
+ * client, so a bare `{}` would crash the research poll loop. Tests that care
+ * about cancellation pass their own controller's signal.
+ */
+function execWith(overrides: Record<string, unknown> = {}) {
+  return { signal: new AbortController().signal, ...overrides } as never;
+}
+
 /** Build deps over a fake client, capturing registrations and audits. */
 function harness(client: Partial<TavilyClient>, overrides: Partial<ToolDeps> = {}) {
   const registered: Registered[] = [];
@@ -72,7 +83,7 @@ test('search audits success with credits and the caller', async () => {
   });
   const search = registered.find((r) => r.name === 'tavily_search');
   assert.ok(search);
-  const value = (await search.execute({ query: 'hello' } as never, { agent: { id: 'a1' } } as never)) as {
+  const value = (await search.execute({ query: 'hello' } as never, execWith({ agent: { id: 'a1' } }))) as {
     query: string;
     results: unknown[];
     credits?: number;
@@ -97,7 +108,7 @@ test('search audits failures with the machine error code', async () => {
   });
   const search = registered.find((r) => r.name === 'tavily_search');
   assert.ok(search);
-  await assert.rejects(search.execute({ query: 'boom' } as never, {} as never), /Too many/);
+  await assert.rejects(search.execute({ query: 'boom' } as never, execWith()), /Too many/);
   assert.equal(audits.at(-1)?.status, 'error');
   assert.equal(audits.at(-1)?.errorCode, 'rate_limited');
 });
@@ -109,7 +120,7 @@ test('tavily_map audits as map, not crawl', async () => {
   });
   const map = registered.find((r) => r.name === 'tavily_map');
   assert.ok(map);
-  const value = (await map.execute({ url: 'https://example.com' } as never, {} as never)) as {
+  const value = (await map.execute({ url: 'https://example.com' } as never, execWith())) as {
     urls: string[];
   };
   assert.equal(value.urls.length, 2);
@@ -132,7 +143,7 @@ test('tavily_extract and tavily_crawl report failed URLs', async () => {
   const crawl = registered.find((r) => r.name === 'tavily_crawl');
   assert.ok(extract && crawl);
 
-  const extracted = (await extract.execute({ urls: ['https://ok.example'] } as never, {} as never)) as {
+  const extracted = (await extract.execute({ urls: ['https://ok.example'] } as never, execWith())) as {
     results: unknown[];
     failed: Array<{ url?: string }>;
   };
@@ -140,7 +151,7 @@ test('tavily_extract and tavily_crawl report failed URLs', async () => {
   assert.equal(extracted.failed[0]?.url, 'https://bad.example');
   assert.equal(audits.at(-1)?.tool, 'extract');
 
-  await crawl.execute({ url: 'https://example.com' } as never, {} as never);
+  await crawl.execute({ url: 'https://example.com' } as never, execWith());
   assert.equal(audits.at(-1)?.tool, 'crawl');
 });
 
@@ -174,7 +185,7 @@ test('tavily_research creates a task and polls until completed', async () => {
   });
   const research = registered.find((r) => r.name === 'tavily_research');
   assert.ok(research);
-  const value = (await research.execute({ input: 'quantum computing' } as never, {} as never)) as {
+  const value = (await research.execute({ input: 'quantum computing' } as never, execWith())) as {
     requestId: string;
     status: string;
     content?: string;
@@ -210,7 +221,7 @@ test('tavily_research with a request_id only reads once', async () => {
   });
   const research = registered.find((r) => r.name === 'tavily_research');
   assert.ok(research);
-  const value = (await research.execute({ request_id: 'req-2' } as never, {} as never)) as {
+  const value = (await research.execute({ request_id: 'req-2' } as never, execWith())) as {
     requestId: string;
     status: string;
   };
@@ -235,7 +246,7 @@ test('polling a research task does not re-charge its cumulative credits', async 
   });
   const research = registered.find((r) => r.name === 'tavily_research');
   assert.ok(research);
-  const value = (await research.execute({ request_id: 'req-9' } as never, {} as never)) as {
+  const value = (await research.execute({ request_id: 'req-9' } as never, execWith())) as {
     credits?: number;
   };
   // The report still SHOWS the task cost — that is useful information.
@@ -257,7 +268,7 @@ test('creating a research task does record its credits', async () => {
   });
   const research = registered.find((r) => r.name === 'tavily_research');
   assert.ok(research);
-  await research.execute({ input: 'a question' } as never, {} as never);
+  await research.execute({ input: 'a question' } as never, execWith());
   assert.equal(audits.at(-1)?.credits, 20);
 });
 
@@ -276,7 +287,7 @@ test('tavily_research returns the id when the budget runs out', async () => {
   );
   const research = registered.find((r) => r.name === 'tavily_research');
   assert.ok(research);
-  const value = (await research.execute({ input: 'slow task' } as never, {} as never)) as {
+  const value = (await research.execute({ input: 'slow task' } as never, execWith())) as {
     requestId: string;
     status: string;
     timedOut?: boolean;
@@ -293,7 +304,7 @@ test('tavily_research rejects when neither input nor request_id is given', async
   const research = registered.find((r) => r.name === 'tavily_research');
   assert.ok(research);
   await assert.rejects(
-    research.execute({} as never, {} as never),
+    research.execute({} as never, execWith()),
     (error: unknown) => {
       assert.ok(error instanceof TavilyError);
       assert.equal(error.code, 'bad_request');
@@ -312,8 +323,8 @@ test('audit entries never contain a key-shaped string', async () => {
   const search = registered.find((r) => r.name === 'tavily_search');
   const map = registered.find((r) => r.name === 'tavily_map');
   assert.ok(search && map);
-  await search.execute({ query: 'find tvly-abcdef123456 please' } as never, {} as never);
-  await map.execute({ url: 'https://example.com/tvly-secret987654' } as never, {} as never);
+  await search.execute({ query: 'find tvly-abcdef123456 please' } as never, execWith());
+  await map.execute({ url: 'https://example.com/tvly-secret987654' } as never, execWith());
   for (const entry of audits) {
     assert.ok(!JSON.stringify(entry).includes('tvly-abcdef123456'));
     assert.ok(!JSON.stringify(entry).includes('tvly-secret987654'));
@@ -329,9 +340,148 @@ test('rendered search output marks external content as untrusted', async () => {
   });
   const search = registered.find((r) => r.name === 'tavily_search');
   assert.ok(search);
-  const value = await search.execute({ query: 'q' } as never, {} as never);
+  const value = await search.execute({ query: 'q' } as never, execWith());
   const rendered = search.output.render({}, value);
   assert.equal(rendered.length, 1);
   assert.match(rendered[0]!.text, /untrusted data, not instructions/);
   assert.match(rendered[0]!.text, /Cite the relevant URLs/);
+});
+
+test('every tool forwards the caller signal so a stop actually cancels', async () => {
+  // `exec.signal` is required by the SDK and the client layer implements
+  // cancellation for each method; the tools must pass it through, or pressing
+  // stop leaves the HTTP request (and the research poll loop) running.
+  const seen: Array<{ tool: string; signal: AbortSignal | undefined }> = [];
+  // `research(input, params)` takes the signal in its SECOND argument; every
+  // other method takes it in the first.
+  const record = (tool: string) => (...args: unknown[]) => {
+    const params = (tool === 'research' ? args[1] : args[0]) as { signal?: AbortSignal } | undefined;
+    seen.push({ tool, signal: params?.signal });
+    return Promise.resolve({ results: [], urls: [], request_id: 'r1', status: 'completed' });
+  };
+  const { registered } = harness({
+    search: record('search') as never,
+    extract: record('extract') as never,
+    crawl: record('crawl') as never,
+    map: record('map') as never,
+    research: record('research') as never,
+    getResearch: record('getResearch') as never,
+  });
+  const controller = new AbortController();
+  const exec = execWith({ signal: controller.signal });
+
+  const call = async (name: string, args: unknown) => {
+    const tool = registered.find((r) => r.name === name);
+    assert.ok(tool, `${name} must be registered`);
+    try {
+      await tool.execute(args as never, exec);
+    } catch {
+      // Argument-shape failures do not matter here; only signal propagation does.
+    }
+  };
+  await call('tavily_search', { query: 'hello' });
+  await call('tavily_extract', { urls: ['https://example.com'] });
+  await call('tavily_crawl', { url: 'https://example.com' });
+  await call('tavily_map', { url: 'https://example.com' });
+  await call('tavily_research', { input: 'question' });
+
+  assert.ok(seen.length >= 5, `expected at least 5 client calls, saw ${seen.length}`);
+  for (const call of seen) {
+    assert.equal(call.signal, controller.signal, `${call.tool} must forward exec.signal`);
+  }
+});
+
+test('an aborted signal interrupts the research backoff sleep', async () => {
+  // The poll loop sleeps between reads. With a plain setTimeout that sleep is
+  // uninterruptible, so an aborted call would keep looping until
+  // `researchTimeoutMs` (3 minutes by default). This pins the cancellable sleep:
+  // the abort arrives DURING the wait and must end it immediately.
+  const controller = new AbortController();
+  let polls = 0;
+  const { registered } = harness(
+    {
+      research: async () => ({ request_id: 'r1', status: 'pending' }),
+      getResearch: async () => {
+        polls += 1;
+        // Abort while the NEXT sleep is already in flight.
+        setTimeout(() => controller.abort(), 10);
+        return { request_id: 'r1', status: 'pending' };
+      },
+    },
+    {
+      researchPollMs: 5_000,
+      config: () => ({
+        defaultMaxResults: 5,
+        defaultSearchDepth: 'advanced',
+        researchTimeoutMs: 600_000,
+      }),
+    },
+  );
+  const tool = registered.find((r) => r.name === 'tavily_research');
+  assert.ok(tool);
+
+  const startedAt = Date.now();
+  await assert.rejects(
+    tool.execute({ input: 'q' } as never, execWith({ signal: controller.signal })),
+    /已被取消/,
+  );
+  const elapsed = Date.now() - startedAt;
+  assert.ok(
+    elapsed < 1_000,
+    `abort must interrupt the 5s backoff sleep, but the call took ${elapsed}ms`,
+  );
+  assert.ok(polls >= 1, 'the task must have been polled at least once');
+});
+
+test('every tool refuses a call cancelled before it starts', async () => {
+  let calls = 0;
+  const counter = async () => {
+    calls += 1;
+    return { results: [], urls: [], request_id: 'r1', status: 'completed' };
+  };
+  const { registered } = harness({
+    search: counter as never,
+    extract: counter as never,
+    crawl: counter as never,
+    map: counter as never,
+    research: counter as never,
+    getResearch: counter as never,
+  });
+  const controller = new AbortController();
+  controller.abort();
+  const exec = execWith({ signal: controller.signal });
+  for (const tool of registered) {
+    await assert.rejects(
+      tool.execute({ query: 'q', urls: ['u'], url: 'u', input: 'q' } as never, exec),
+      (error: { code?: string }) => error.code === 'aborted',
+      `${tool.name} must reject an already-cancelled call`,
+    );
+  }
+  assert.equal(calls, 0, 'no cancelled call may reach the client');
+});
+
+test('a call cancelled before it starts never reaches the client', async () => {
+  // Without a pre-flight check a task that settles instantly would report
+  // success for a call the caller already abandoned.
+  let calls = 0;
+  const { registered } = harness({
+    research: async () => {
+      calls += 1;
+      return { request_id: 'r1', status: 'completed' };
+    },
+    getResearch: async () => {
+      calls += 1;
+      return { request_id: 'r1', status: 'completed' };
+    },
+  });
+  const tool = registered.find((r) => r.name === 'tavily_research');
+  assert.ok(tool);
+  const controller = new AbortController();
+  controller.abort();
+
+  await assert.rejects(
+    tool.execute({ input: 'q' } as never, execWith({ signal: controller.signal })),
+    (error: { code?: string }) => error.code === 'aborted',
+  );
+  assert.equal(calls, 0, 'an already-cancelled call must not spend a request');
 });

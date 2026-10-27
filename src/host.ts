@@ -14,7 +14,7 @@
  *
  * - The key resolves per call as literal config → `ctx.credentials` → launch
  *   environment, and is never cached (see `./keystore`).
- * - The settings page writes through `ctx.credentials`, so the value lives in
+ * - The configuration panel writes through `ctx.credentials`, so the value lives in
  *   the managed store rather than any configuration file.
  * - `Config` is a `.volatile()` schema, so `apply` reads accessors and a
  *   settings edit reaches the next call without a reload.
@@ -28,7 +28,7 @@
 
 import { credentialRef } from '@deepseek-ai/dsh-credentials';
 import { defineTool } from '@deepseek-ai/dsh-tools';
-import { TavilyClient, type AuditEntry } from '@dsh-plugins/plugin-kit';
+import { CONFIG_LOCATION, TavilyClient, type AuditEntry } from '@dsh-plugins/plugin-kit';
 import { appendAudit, dataDir } from './audit-store.js';
 import { Config, resolveConfig, type PluginConfig } from './config.js';
 import { resolveApiKey, type KeyResolution } from './keystore.js';
@@ -135,7 +135,7 @@ export function apply(ctx: Ctx, config: PluginConfig): void {
       if (!key.ok && !allowKeyless()) {
         const cfg = resolveConfig(config);
         throw new Error(
-          `Tavily 未配置 API Key（凭据引用 ${cfg.apiKeyEnv}）。请前往 DSH 设置页 → Tavily 搜索填写，或在配置中开启 allowKeyless。`,
+          `Tavily 未配置 API Key（凭据引用 ${cfg.apiKeyEnv}）。请前往${CONFIG_LOCATION}填写，或在配置中开启 allowKeyless。`,
         );
       }
       if (key.ok) credentialSeen = true;
@@ -193,7 +193,7 @@ export function apply(ctx: Ctx, config: PluginConfig): void {
       if (!key.ok && !allowKeyless()) {
         const cfg = resolveConfig(config);
         throw new Error(
-          `未配置 Tavily API Key（凭据引用 ${cfg.apiKeyEnv}）。请前往 DSH 设置页 → Tavily 搜索填写 API Key，或在配置中开启 allowKeyless 使用免密搜索。`,
+          `未配置 Tavily API Key（凭据引用 ${cfg.apiKeyEnv}）。请前往${CONFIG_LOCATION}填写 API Key，或在配置中开启 allowKeyless 使用免密搜索。`,
         );
       }
       return clientFor(key.apiKey);

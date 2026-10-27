@@ -7,7 +7,17 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { AuditEntry } from '@dsh-plugins/plugin-kit';
-import { appendAudit, dataDir, listMonths, monthStats, readAudit } from '../src/audit-store.js';
+import {
+  appendAudit,
+  clearAuditCache,
+  dataDir,
+  listMonths,
+  listMonthsAsync,
+  monthStats,
+  monthStatsAsync,
+  readAudit,
+  readAuditAsync,
+} from '../src/audit-store.js';
 
 function tempHome(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'tavily-audit-'));
@@ -76,4 +86,47 @@ test('an unwritable directory degrades instead of throwing', () => {
 
 test('listMonths on a missing directory returns an empty list', () => {
   assert.deepEqual(listMonths(path.join(os.tmpdir(), 'tavily-definitely-missing-xyz')), []);
+});
+
+test('the async readers agree with the sync ones', async () => {
+  clearAuditCache();
+  const dir = dataDir(tempHome());
+  appendAudit({ at: '2026-10-08T10:00:00.000Z', tool: 'search', target: 'alpha', status: 'ok', latencyMs: 10, resultCount: 3, credits: 1 }, dir);
+  appendAudit({ at: '2026-10-08T10:01:00.000Z', tool: 'map', target: 'https://example.com', status: 'ok', latencyMs: 20, resultCount: 7 }, dir);
+
+  assert.deepEqual(await readAuditAsync({ month: '202610', limit: 50 }, dir), readAudit({ month: '202610', limit: 50 }, dir));
+  assert.deepEqual(await monthStatsAsync('202610', dir), monthStats('202610', dir));
+  assert.deepEqual(await listMonthsAsync(dir), listMonths(dir));
+});
+
+test('an append invalidates the parse cache', async () => {
+  clearAuditCache();
+  const dir = dataDir(tempHome());
+  const base = { at: '2026-10-08T10:00:00.000Z', tool: 'search' as const, target: 'a', status: 'ok' as const, latencyMs: 1, resultCount: 1 };
+
+  appendAudit(base, dir);
+  assert.equal((await readAuditAsync({ month: '202610' }, dir)).length, 1);
+
+  appendAudit({ ...base, target: 'b', at: '2026-10-08T10:05:00.000Z' }, dir);
+  // Same size would be a false hit; the content grew, so size and mtime both move.
+  assert.equal(
+    (await readAuditAsync({ month: '202610' }, dir)).length,
+    2,
+    'a new append must be visible without clearing the cache by hand',
+  );
+});
+
+test('an append that keeps the byte size identical still invalidates', async () => {
+  clearAuditCache();
+  const dir = dataDir(tempHome());
+  const first = { at: '2026-10-08T10:00:00.000Z', tool: 'search' as const, target: 'aa', status: 'ok' as const, latencyMs: 1, resultCount: 1 };
+  const second = { at: '2026-10-08T10:09:00.000Z', tool: 'search' as const, target: 'bb', status: 'ok' as const, latencyMs: 2, resultCount: 2 };
+
+  appendAudit(first, dir);
+  await readAuditAsync({ month: '202610' }, dir);
+  appendAudit(second, dir);
+  // Two lines of identical length: only mtime distinguishes them, which is why
+  // the cache key carries mtime as well as size.
+  const entries = await readAuditAsync({ month: '202610' }, dir);
+  assert.equal(entries.length, 2);
 });

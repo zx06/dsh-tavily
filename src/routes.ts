@@ -1,7 +1,7 @@
 /**
  * The plugin's JSON API, mounted at `/api/tavily`.
  *
- * The settings page owns the richer surface (key validation, quota, audit
+ * The configuration panel owns the richer surface (key validation, quota, audit
  * table) that a schema-derived form cannot express, so it needs routes of its
  * own. They are registered as a `prefix` route on `ctx.webServer`; because the
  * webserver picks the LONGEST matching prefix, `/api/tavily` wins over the
@@ -21,7 +21,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { TavilyClient, TavilyError, toTavilyError } from '@dsh-plugins/plugin-kit';
-import { listMonths, monthStats, readAudit, type AuditQuery } from './audit-store.js';
+import { listMonthsAsync, monthStatsAsync, readAuditAsync, type AuditQuery } from './audit-store.js';
 
 export const ROUTE_PREFIX = '/api/tavily';
 
@@ -116,8 +116,8 @@ export function createHandler(deps: RouteDeps) {
           maskedKey: key.masked,
           keyRef: key.ref,
           keyless: deps.allowKeyless(),
-          stats: monthStats(undefined, dir),
-          months: listMonths(dir),
+          stats: await monthStatsAsync(undefined, dir),
+          months: await listMonthsAsync(dir),
           dashboardUrl: 'https://app.tavily.com/home',
         });
         return;
@@ -152,7 +152,11 @@ export function createHandler(deps: RouteDeps) {
           keyword: url.searchParams.get('q') ?? undefined,
           limit: Number.isFinite(rawLimit) ? Math.min(Math.max(Math.trunc(rawLimit), 1), MAX_AUDIT_LIMIT) : 50,
         };
-        json(res, 200, { ok: true, entries: readAudit(query, dir), months: listMonths(dir) });
+        json(res, 200, {
+          ok: true,
+          entries: await readAuditAsync(query, dir),
+          months: await listMonthsAsync(dir),
+        });
         return;
       }
 

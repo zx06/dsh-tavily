@@ -173,8 +173,8 @@ test('the client half declares the plugin manager so the detail slot exists', ()
 });
 
 test('the form mounts exactly once, on the plugin detail page', () => {
-  const mounts = client.match(/h\(SettingsPage, \{[^}]*\}\)/g) ?? [];
-  assert.equal(mounts.length, 1, 'SettingsPage must have a single mount point');
+  const mounts = client.match(/h\(ConfigPanel, \{[^}]*\}\)/g) ?? [];
+  assert.equal(mounts.length, 1, 'ConfigPanel must have a single mount point');
 });
 
 test('the form omits its own page header', () => {

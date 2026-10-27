@@ -92,11 +92,6 @@ export class TavilyWebSearchProvider implements WebSearchProvider {
     return this.credentialSeen || this.deps.hasCredential();
   }
 
-  /** Refresh the cached credential signal; called after a successful search. */
-  markCredentialSeen(): void {
-    this.credentialSeen = true;
-  }
-
   async search(request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearchResult> {
     const client = await this.deps.resolveClient();
     try {
