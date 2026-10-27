@@ -15,3 +15,15 @@ onlyBuiltDependencies:
   - esbuild
 allowBuilds:
   esbuild: true
+
+# `@deepseek-ai/dsh-llm` depends on zod by EXACT version (`"zod": "4.4.3"`, not a
+# range), and 4.4.3 predates the fix for a memory-exhaustion advisory in
+# oversized constrained collections (patched in 4.6.6). Because the pin is
+# exact, only an override can lift it.
+#
+# This plugin never imports zod: it arrives solely through the dev/peer SDK,
+# `dist/host.js` inlines no zod, and the published package declares none. So the
+# override changes nothing the plugin ships — it just keeps the dev tree on a
+# patched release instead of the advisory range.
+overrides:
+  zod: ^4.6.7
