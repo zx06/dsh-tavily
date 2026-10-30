@@ -1,6 +1,6 @@
 {
   "name": "@zx06/tavily",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Tavily web search for DeepSeek Harness: a ctx.web search provider plus tavily_search/extract/crawl/map/research tools, with its configuration UI on the plugin's own detail page",
   "license": "MIT",
   "type": "module",
@@ -55,13 +55,13 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "~4.0.5",
-    "@deepseek-ai/dsh-credentials": "0.2.1-rc.3",
-    "@deepseek-ai/dsh-settings": "0.2.1-rc.3",
-    "@deepseek-ai/dsh-tools": "0.2.1-rc.3",
-    "@deepseek-ai/dsh-web": "0.2.1-rc.3"
+    "@deepseek-ai/dsh-credentials": "^0.2.1-rc.5",
+    "@deepseek-ai/dsh-settings": "^0.2.1-rc.5",
+    "@deepseek-ai/dsh-tools": "^0.2.1-rc.5",
+    "@deepseek-ai/dsh-web": "^0.2.1-rc.5"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-agent": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-agent": "0.2.1-rc.5",
     "@dsh-plugins/plugin-kit": "workspace:*",
     "@types/node": "^22.20.5",
     "esbuild": "^0.28.2",

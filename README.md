@@ -23,6 +23,18 @@ dsh plugin --profile web add github:zx06/dsh-tavily
 两个通道安装的都是同一份构建产物。装好后重启 profile，打开
 **插件管理器 → @zx06/tavily 详情页** 填 API Key 即可（也可先用免密模式）。
 
+### DSH 版本要求
+
+`peerDependencies` 里四个 DSH seam 包声明为 `^0.2.1-rc.5`。DSH 启动时会拿运行时
+版本逐个比对这几个范围（`@deepseek-ai/cordis` 不是 DSH 包，不参与），不匹配就整包
+拒绝加载。写成范围而不是精确版本是有意的：同一 `0.2.1` 预发布系列（rc.6、rc.7…）
+共用同一套 seam 接口，精确锁会让每个 rc 都拒绝一次，而代码一行都不用改——0.4.1 就是
+这么被拒的。
+
+受 semver 预发布规则限制，范围不覆盖下一个补丁号的预发布（如 `0.2.2-rc.1`），所以
+DSH 跳到新的补丁号时仍需发版。这里没有声明 `engines.dsh`：一旦声明，DSH 只按它
+判断并忽略所有 peer 范围，等于悄悄放弃逐 seam 的检查。
+
 ## 功能
 
 | 工具 | 说明 | 需要 Key |
@@ -114,7 +126,7 @@ pnpm install     # 安装依赖（含私有的 @dsh-plugins/plugin-kit workspace
 pnpm build       # 先 tsc 构建 kit，再出类型声明，最后 esbuild 打包 dist/host.js
 pnpm typecheck   # 类型检查
 pnpm lint        # 语法检查（node --check）
-pnpm test        # 单测（84 个：插件 68 + kit 16，全部离线，不打真网）
+pnpm test        # 单测（111 个：插件 95 + kit 16，全部离线，不打真网）
 ```
 
 ### 为什么 `dist/host.js` 是提交进仓库的
